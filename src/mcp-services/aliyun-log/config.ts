@@ -18,6 +18,7 @@ export function readAliyunLogConfig() {
     accessKeyId: readRequiredEnv("ALIYUN_LOG_ACCESS_KEY_ID"),
     accessKeySecret: readRequiredEnv("ALIYUN_LOG_ACCESS_KEY_SECRET"),
     region,
-    endpoint: process.env.ALIYUN_LOG_ENDPOINT ?? buildDefaultEndpoint(region)
+    endpoint: process.env.ALIYUN_LOG_ENDPOINT ?? buildDefaultEndpoint(region),
+    defaultProjectName: process.env.ALIYUN_LOG_DEFAULT_PROJECT_NAME
   };
 }

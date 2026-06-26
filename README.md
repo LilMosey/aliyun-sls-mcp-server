@@ -53,6 +53,7 @@ cp .env.example .env.local
 ALIYUN_LOG_ACCESS_KEY_ID=
 ALIYUN_LOG_ACCESS_KEY_SECRET=
 ALIYUN_LOG_REGION=cn-hangzhou
+ALIYUN_LOG_DEFAULT_PROJECT_NAME=
 ```
 
 `.env.example` 是提交到 Git 的模板，不放真实密钥。`.env.local` 是本机真实配置，已经被 `.gitignore` 忽略，不会上传到 GitHub。
@@ -68,6 +69,8 @@ npm run dev
 ```bash
 curl "http://localhost:3000/aliyun-log/projects"
 ```
+
+如果请求里不传 `projectName`，接口会默认使用 `ALIYUN_LOG_DEFAULT_PROJECT_NAME`。例如你配置了 `k8s-dev`，上面的请求等价于按 `k8s-dev` 模糊过滤。
 
 按 Project 名称模糊过滤：
 
