@@ -1,6 +1,7 @@
 import express from "express";
 
 import { env } from "./config/env.js";
+import { aliyunLogRouter } from "./mcp-services/aliyun-log/routes.js";
 import { healthRouter } from "./routes/health.js";
 
 export function createApp() {
@@ -21,6 +22,7 @@ export function createApp() {
   });
 
   app.use("/health", healthRouter);
+  app.use("/aliyun-log", aliyunLogRouter);
 
   return app;
 }

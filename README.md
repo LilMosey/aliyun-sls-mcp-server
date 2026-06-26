@@ -37,6 +37,44 @@ curl http://localhost:3000/health
 }
 ```
 
+## 阿里云日志调试接口
+
+当前先接入阿里云日志服务的 `ListProject` API，不接 MCP。
+
+先复制本地环境变量文件：
+
+```bash
+cp .env.example .env.local
+```
+
+然后填写：
+
+```bash
+ALIYUN_LOG_ACCESS_KEY_ID=
+ALIYUN_LOG_ACCESS_KEY_SECRET=
+ALIYUN_LOG_REGION=cn-hangzhou
+```
+
+`.env.example` 是提交到 Git 的模板，不放真实密钥。`.env.local` 是本机真实配置，已经被 `.gitignore` 忽略，不会上传到 GitHub。
+
+启动服务：
+
+```bash
+npm run dev
+```
+
+查询当前账号在指定区域下能访问的 Project：
+
+```bash
+curl "http://localhost:3000/aliyun-log/projects"
+```
+
+按 Project 名称模糊过滤：
+
+```bash
+curl "http://localhost:3000/aliyun-log/projects?projectName=k8s"
+```
+
 ## 常用命令
 
 ```bash
@@ -53,7 +91,7 @@ npm start
 - `src/config/env.ts`：环境变量读取和校验。
 - `src/routes/health.ts`：健康检查路由。
 - `src/mcp-services/mysql-metadata`：MySQL 元数据 MCP 服务预留目录。
-- `src/mcp-services/aliyun-log`：阿里云日志 MCP 服务预留目录。
+- `src/mcp-services/aliyun-log`：阿里云日志 API 接入模块，当前先实现 `ListProject`。
 
 ## Review TS 代码的建议流程
 

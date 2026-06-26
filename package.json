@@ -21,6 +21,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@alicloud/sls20201230": "^5.10.1",
     "@modelcontextprotocol/sdk": "^1.15.0",
     "dotenv": "^16.4.7",
     "express": "^4.19.2"
