@@ -6,7 +6,7 @@ import { listProjects } from "./mcp-services/aliyun-log/projects.js";
 export function createMcpServer() {
   const server = new McpServer(
     {
-      name: "codemao-mcp-service",
+      name: "mcp-service",
       version: "0.1.0"
     },
     {
