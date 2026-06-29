@@ -1,8 +1,8 @@
 # MCP-SERVER
 
-这是一个 TypeScript + Express 项目骨架，用来承载后续的 MCP 服务。
+这是一个 TypeScript + Express 项目，用来承载后续的 MCP 服务。
 
-当前只实现健康检查，不实现具体 MCP 功能。
+当前已经包含健康检查、阿里云日志 HTTP 调试接口，以及 Streamable HTTP MCP 服务。
 
 ## 服务规划
 
@@ -53,6 +53,11 @@ cp .env.example .env.local
 ALIYUN_LOG_ACCESS_KEY_ID=
 ALIYUN_LOG_ACCESS_KEY_SECRET=
 ALIYUN_LOG_REGION=cn-hangzhou
+ALIYUN_LOG_DEFAULT_QUERY_MINUTES=15
+ALIYUN_LOG_MAX_QUERY_MINUTES=30
+ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES=5
+ALIYUN_LOG_DEFAULT_PAGE_SIZE=50
+ALIYUN_LOG_MAX_PAGE_SIZE=100
 ```
 
 `.env.example` 是提交到 Git 的模板，不放真实密钥。`.env.local` 是本机真实配置，已经被 `.gitignore` 忽略，不会上传到 GitHub。
@@ -89,6 +94,32 @@ curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores"
 curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores?logstoreName=test"
 ```
 
+查询某个 Project + Logstore 最近 5 分钟日志：
+
+```bash
+curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs"
+```
+
+查询最近 5 分钟 ERROR 日志：
+
+```bash
+curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs?query=level:%20ERROR&minutes=5&pageNumber=1&pageSize=50"
+```
+
+分页查询第二页：
+
+```bash
+curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs?query=level:%20ERROR&minutes=5&pageNumber=2&pageSize=50"
+```
+
+也可以用 Unix 秒级时间戳指定时间范围：
+
+```bash
+curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs?query=level:%20ERROR&from=1719390000&to=1719390900"
+```
+
+注意：`query` 里如果包含 `|`，阿里云会把它当分析语句处理，普通 `line/offset` 分页可能会被忽略。这种情况建议在 SQL 里自己写 `limit/offset`。
+
 ## MCP 服务
 
 当前提供一个 Streamable HTTP MCP 服务，路径是：
@@ -104,14 +135,15 @@ MCP 使用 stateful Streamable HTTP：
 - `GET /mcp` 使用同一个 `mcp-session-id` 建立 SSE 长连接，用于接收服务端通知。
 - `DELETE /mcp` 使用同一个 `mcp-session-id` 终止会话。
 
-当前先只注册一个工具：
+当前注册的工具：
 
 ```text
 aliyun_log_list_projects
 aliyun_log_list_logstores
+aliyun_log_query_logs
 ```
 
-这个工具复用阿里云日志 `ListProject` API，用来查询当前账号在指定区域下可访问的 Project。
+这些工具复用阿里云日志 API，用来查询当前账号在指定区域下可访问的 Project、Logstore，以及指定 Logstore 下的日志。
 
 启动服务：
 
@@ -142,11 +174,31 @@ npm run dev
 }
 ```
 
+`aliyun_log_query_logs` 工具参数：
+
+```json
+{
+  "projectName": "k8s-dev",
+  "logstoreName": "test",
+  "query": "level: ERROR",
+  "minutes": 5,
+  "pageNumber": 1,
+  "pageSize": 50,
+  "reverse": true
+}
+```
+
+时间参数有两种写法：
+
+1. 传 `minutes`，表示查询最近 N 分钟。
+2. 同时传 `from` 和 `to`，表示查询固定 Unix 秒级时间范围。
+
+如果两种都不传，有 `query` 时默认查询最近 15 分钟；空查询时默认查询最近 5 分钟。空查询最大只允许查 5 分钟，避免一次性扫太多日志。
+
 ## 常用命令
 
 ```bash
 npm run typecheck
-npm test
 npm run build
 npm start
 ```
@@ -158,7 +210,7 @@ npm start
 - `src/config/env.ts`：环境变量读取和校验。
 - `src/routes/health.ts`：健康检查路由。
 - `src/mcp-services/mysql-metadata`：MySQL 元数据 MCP 服务预留目录。
-- `src/mcp-services/aliyun-log`：阿里云日志 API 接入模块，当前先实现 `ListProject`。
+- `src/mcp-services/aliyun-log`：阿里云日志 API 接入模块，当前实现 `ListProject`、`ListLogStores` 和 `GetLogs`。
 
 ## Review TS 代码的建议流程
 
@@ -168,9 +220,9 @@ npm start
 2. 再看入口文件：本项目先看 `src/server.ts`，确认服务从哪里启动、监听哪个端口。
 3. 再看应用组装：看 `src/app.ts`，确认中间件、路由注册、返回结构是否符合预期。
 4. 再看配置读取：看 `src/config/env.ts`，确认环境变量有没有默认值、有没有基本校验。
-5. 再看具体路由：看 `src/routes/health.ts`，确认接口路径、状态码、返回 JSON。
-6. 最后看测试：看 `tests/health.test.ts`，确认测试覆盖了健康检查返回体；HTTP 路径可以启动服务后用 `curl http://localhost:3000/health` 手动确认。
-7. 跑一遍命令：`npm run typecheck`、`npm test`、`npm run build`。
+5. 再看具体路由：看 `src/routes/health.ts` 和 `src/mcp-services/aliyun-log/routes.ts`，确认接口路径、入参、返回 JSON。
+6. 再看 MCP 注册：看 `src/mcp-server.ts`，确认工具名、参数、调用的服务函数和返回内容。
+7. 跑一遍命令：`npm run typecheck`、`npm run build`。
 
 如果你不确定某段 TS，可以重点问三个问题：
 

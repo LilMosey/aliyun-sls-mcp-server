@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
 
+import type { GetLogsRequest } from "@alicloud/sls20201230/dist/models/GetLogsRequest.js";
+import type { GetLogsResponse } from "@alicloud/sls20201230/dist/models/GetLogsResponse.js";
 import type { ListLogStoresRequest } from "@alicloud/sls20201230/dist/models/ListLogStoresRequest.js";
 import type { ListLogStoresResponse } from "@alicloud/sls20201230/dist/models/ListLogStoresResponse.js";
 import type { ListProjectRequest } from "@alicloud/sls20201230/dist/models/ListProjectRequest.js";
@@ -13,6 +15,11 @@ interface AliyunLogClient {
     project: string,
     request: ListLogStoresRequest
   ): Promise<ListLogStoresResponse>;
+  getLogs(
+    project: string,
+    logstore: string,
+    request: GetLogsRequest
+  ): Promise<GetLogsResponse>;
 }
 
 type AliyunLogClientConstructor = new (config: {

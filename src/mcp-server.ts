@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
 
 import { listLogStores } from "./mcp-services/aliyun-log/logstores.js";
+import { queryLogs } from "./mcp-services/aliyun-log/logs.js";
 import { listProjects } from "./mcp-services/aliyun-log/projects.js";
 
 export function createMcpServer() {
@@ -152,6 +153,120 @@ export function createMcpServer() {
             projectName,
             count: result.count,
             total: result.total
+          }
+        },
+        extra.sessionId
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    }
+  );
+
+  server.registerTool(
+    "aliyun_log_query_logs",
+    {
+      title: "查询阿里云日志",
+      description:
+        "查询指定 Project + Logstore 的日志。有 query 时默认最近 15 分钟，空 query 默认最近 5 分钟，支持 pageNumber/pageSize 分页。",
+      inputSchema: {
+        projectName: z.string().describe("Project 名称，例如 k8s-dev。"),
+        logstoreName: z.string().describe("Logstore 名称，例如 test。"),
+        query: z
+          .string()
+          .optional()
+          .describe("阿里云日志查询语句；不传或空字符串表示查询时间范围内的日志。"),
+        from: z
+          .number()
+          .int()
+          .optional()
+          .describe("查询开始时间，Unix 秒级时间戳，需要和 to 同时传。"),
+        to: z
+          .number()
+          .int()
+          .optional()
+          .describe("查询结束时间，Unix 秒级时间戳，需要和 from 同时传。"),
+        minutes: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe("查询最近多少分钟；不能和 from/to 同时传。"),
+        pageNumber: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe("页码，从 1 开始，默认 1。"),
+        pageSize: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("每页日志条数，默认 50，最大 100。"),
+        reverse: z
+          .boolean()
+          .optional()
+          .describe("是否按时间倒序返回，默认 true。")
+      }
+    },
+    async (
+      {
+        projectName,
+        logstoreName,
+        query,
+        from,
+        to,
+        minutes,
+        pageNumber,
+        pageSize,
+        reverse
+      },
+      extra
+    ) => {
+      await server.sendLoggingMessage(
+        {
+          level: "info",
+          data: {
+            message: "开始查询阿里云日志",
+            projectName,
+            logstoreName,
+            query: query ?? null,
+            pageNumber: pageNumber ?? 1
+          }
+        },
+        extra.sessionId
+      );
+
+      const result = await queryLogs({
+        projectName,
+        logstoreName,
+        query,
+        from,
+        to,
+        minutes,
+        pageNumber,
+        pageSize,
+        reverse
+      });
+
+      await server.sendLoggingMessage(
+        {
+          level: "info",
+          data: {
+            message: "阿里云日志查询完成",
+            projectName,
+            logstoreName,
+            count: result.count,
+            hasMore: result.page.hasMore,
+            progress: result.progress ?? null
           }
         },
         extra.sessionId
