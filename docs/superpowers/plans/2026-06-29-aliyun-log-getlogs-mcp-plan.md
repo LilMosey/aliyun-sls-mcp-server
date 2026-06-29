@@ -119,86 +119,97 @@ ALIYUN_LOG_MAX_PAGE_SIZE=100
 - 超过最大 `pageSize` 会返回明确错误。
 - 编译通过：`npm run typecheck`、`npm run build`。
 
-## V2：常用排障工具
+## V2：环境映射和查询语法规范化
 
 ### 要做什么
 
-基于 V1 的 `queryLogs` 能力新增三个 MCP 工具：
+不新增多个固定排障工具，而是增强现有的通用查询工具：
 
 ```text
-aliyun_log_query_recent_errors
-aliyun_log_query_service_errors
-aliyun_log_query_trace
+aliyun_log_query_logs
 ```
 
-### `aliyun_log_query_recent_errors`
+原因是日常排障主要是直接写阿里云日志查询语句，例如按服务、日志级别、traceId 查询。MCP 服务要做的是稳定地提供环境映射、默认环境、字段说明和查询边界，而不是把每一种查询都拆成一个新工具。
 
-查询某个 Project + Logstore 最近 N 分钟错误日志。
+### 环境映射
 
-参数：
+不同环境对应不同的 Project 和 Logstore。环境映射放在 MCP 服务配置里，而不是只写在 agent skill 或 prompt 里。
+
+配置示例：
+
+```bash
+ALIYUN_LOG_DEFAULT_ENVIRONMENT=test
+ALIYUN_LOG_ENVIRONMENTS={"test":{"projectName":"k8s-dev","logstoreName":"test"},"staging":{"projectName":"k8s-staging","logstoreName":"staging"}}
+```
+
+工具参数优先使用：
 
 ```ts
 {
-  projectName: string;
-  logstoreName: string;
+  environment?: string;
+  query?: string;
   minutes?: number;
   pageNumber?: number;
   pageSize?: number;
 }
 ```
 
-初始查询语句：
+规则：
+
+- `environment` 不传时默认使用 `ALIYUN_LOG_DEFAULT_ENVIRONMENT`。
+- 默认环境是 `test`。
+- 如果传了不存在的 `environment`，MCP 服务直接返回明确错误。
+- 临时调试时仍允许直接传 `projectName + logstoreName`。
+- `environment` 不能和 `projectName/logstoreName` 混用，避免目标不清楚。
+
+### 查询语法规范
+
+需要在工具 description、README 和后续 skill 里固化这些字段：
 
 ```text
-level: ERROR
+服务字段：_container_name_
+日志级别字段：level
+日志级别取值：info / warn / error
+traceId 字段：content
 ```
 
-### `aliyun_log_query_service_errors`
-
-查询某个 Project + Logstore 下，一批服务的 ERROR 日志。
-
-参数：
-
-```ts
-{
-  projectName: string;
-  logstoreName: string;
-  containerNames: string[];
-  minutes?: number;
-  pageNumber?: number;
-  pageSize?: number;
-}
-```
-
-基于字段：
+常用查询模板：
 
 ```text
-__container_name__
+_container_name_: order-service
 ```
 
-### `aliyun_log_query_trace`
+多个服务：
 
-通过 traceId 查询链路日志。
-
-参数：
-
-```ts
-{
-  projectName: string;
-  logstoreNames: string[];
-  traceId: string;
-  minutes?: number;
-  pageSize?: number;
-}
+```text
+(_container_name_: order-service or _container_name_: pay-service)
 ```
 
-第一阶段先在 `content` 里查 traceId。后续如果有独立 traceId 索引字段，再改为字段查询。
+多个服务的错误日志：
+
+```text
+(_container_name_: order-service or _container_name_: pay-service) and level: error
+```
+
+traceId 链路：
+
+```text
+content: "b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053"
+```
+
+traceId + 日志级别：
+
+```text
+content: "b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053" and level: info
+```
 
 ### 验收标准
 
-- 三个工具都复用 V1 的时间、分页、返回结构和错误处理。
-- 可以查询最近错误、一批服务错误和 traceId 日志。
-- 多 Logstore trace 查询可以按 Logstore 分组返回。
+- `aliyun_log_query_logs` 支持只传 `environment + query`。
+- 不传 `environment` 时默认查 `test`。
+- 传不存在的环境会返回明确错误，并列出允许的环境。
+- 可以继续用 `projectName + logstoreName` 做临时调试。
+- README 和工具 description 包含服务、level、traceId 的查询模板。
 
 ## V3：生产安全增强
 
@@ -281,7 +292,7 @@ aliyun_log_suggest_query_fields
 
 1. 先实现 V1：`aliyun_log_query_logs`。
 2. 用真实 Project / Logstore 验证 GetLogs 权限、query 语法和分页。
-3. 再实现 V2 的三个排障工具。
+3. 再实现 V2 的环境映射和查询语法规范化。
 4. 在生产环境开放前完成 V3 的白名单、审计和脱敏。
 5. 最后实现 V4 的聚合和诊断能力。
 

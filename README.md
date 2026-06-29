@@ -53,6 +53,8 @@ cp .env.example .env.local
 ALIYUN_LOG_ACCESS_KEY_ID=
 ALIYUN_LOG_ACCESS_KEY_SECRET=
 ALIYUN_LOG_REGION=cn-hangzhou
+ALIYUN_LOG_DEFAULT_ENVIRONMENT=test
+ALIYUN_LOG_ENVIRONMENTS={"test":{"projectName":"k8s-dev","logstoreName":"test"},"staging":{"projectName":"k8s-staging","logstoreName":"staging"}}
 ALIYUN_LOG_DEFAULT_QUERY_MINUTES=15
 ALIYUN_LOG_MAX_QUERY_MINUTES=30
 ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES=5
@@ -100,16 +102,99 @@ curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores?logstoreName=t
 curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs"
 ```
 
+按环境查询最近 5 分钟日志。`environment` 不传时默认使用 `ALIYUN_LOG_DEFAULT_ENVIRONMENT`，当前默认是 `test`：
+
+```bash
+curl "http://localhost:3000/aliyun-log/logs"
+```
+
+指定环境查询：
+
+```bash
+curl "http://localhost:3000/aliyun-log/logs?environment=staging"
+```
+
 查询最近 5 分钟 ERROR 日志：
 
 ```bash
-curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs?query=level:%20ERROR&minutes=5&pageNumber=1&pageSize=50"
+curl --get "http://localhost:3000/aliyun-log/logs" \
+  --data-urlencode "environment=test" \
+  --data-urlencode "query=level: error" \
+  --data-urlencode "minutes=5" \
+  --data-urlencode "pageNumber=1" \
+  --data-urlencode "pageSize=50"
 ```
 
-分页查询第二页：
+查询两个服务的日志：
 
 ```bash
-curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs?query=level:%20ERROR&minutes=5&pageNumber=2&pageSize=50"
+curl --get "http://localhost:3000/aliyun-log/logs" \
+  --data-urlencode "environment=test" \
+  --data-urlencode "query=(_container_name_: order-service or _container_name_: pay-service)" \
+  --data-urlencode "minutes=5"
+```
+
+查询两个服务的 ERROR 日志：
+
+```bash
+curl --get "http://localhost:3000/aliyun-log/logs" \
+  --data-urlencode "environment=test" \
+  --data-urlencode "query=(_container_name_: order-service or _container_name_: pay-service) and level: error" \
+  --data-urlencode "minutes=5"
+```
+
+查询 traceId 链路：
+
+```bash
+curl --get "http://localhost:3000/aliyun-log/logs" \
+  --data-urlencode "environment=test" \
+  --data-urlencode "query=content: \"b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053\"" \
+  --data-urlencode "minutes=15"
+```
+
+查询 traceId 的某个日志级别：
+
+```bash
+curl --get "http://localhost:3000/aliyun-log/logs" \
+  --data-urlencode "environment=test" \
+  --data-urlencode "query=content: \"b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053\" and level: info" \
+  --data-urlencode "minutes=15"
+```
+
+分页查询第二页时，不要重新传 `minutes`。如果上一页返回了 `nextPage`，直接复用里面的 `from/to/query/pageSize/reverse`，只使用它给出的下一页页码。
+
+上一页返回示例：
+
+```json
+{
+  "page": {
+    "pageNumber": 1,
+    "pageSize": 50,
+    "offset": 0,
+    "hasMore": true
+  },
+  "nextPage": {
+    "environment": "test",
+    "query": "level: error",
+    "from": 1719390000,
+    "to": 1719390900,
+    "pageNumber": 2,
+    "pageSize": 50,
+    "reverse": true
+  }
+}
+```
+
+然后按 `nextPage` 查询第二页：
+
+```bash
+curl --get "http://localhost:3000/aliyun-log/logs" \
+  --data-urlencode "environment=test" \
+  --data-urlencode "query=level: error" \
+  --data-urlencode "from=1719390000" \
+  --data-urlencode "to=1719390900" \
+  --data-urlencode "pageNumber=2" \
+  --data-urlencode "pageSize=50"
 ```
 
 也可以用 Unix 秒级时间戳指定时间范围：
@@ -178,15 +263,23 @@ npm run dev
 
 ```json
 {
-  "projectName": "k8s-dev",
-  "logstoreName": "test",
-  "query": "level: ERROR",
+  "environment": "test",
+  "query": "(_container_name_: order-service or _container_name_: pay-service) and level: error",
   "minutes": 5,
   "pageNumber": 1,
   "pageSize": 50,
   "reverse": true
 }
 ```
+
+`environment` 不传时默认查 `test`。如果要临时绕过环境映射，也可以同时传 `projectName` 和 `logstoreName`，但不能和 `environment` 混用。
+
+常用查询字段：
+
+- 服务名：`_container_name_`
+- 日志级别：`level`
+- 日志级别取值：`info`、`warn`、`error`
+- traceId：`content`
 
 时间参数有两种写法：
 

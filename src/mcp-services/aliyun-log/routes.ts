@@ -44,6 +44,25 @@ aliyunLogRouter.get("/projects", async (request, response, next) => {
   }
 });
 
+aliyunLogRouter.get("/logs", async (request, response, next) => {
+  try {
+    const result = await queryLogs({
+      environment: readStringQuery(request.query.environment),
+      query: readStringQuery(request.query.query),
+      from: readNumberQuery(request.query.from),
+      to: readNumberQuery(request.query.to),
+      minutes: readNumberQuery(request.query.minutes),
+      pageNumber: readNumberQuery(request.query.pageNumber),
+      pageSize: readNumberQuery(request.query.pageSize),
+      reverse: readBooleanQuery(request.query.reverse)
+    });
+
+    response.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 aliyunLogRouter.get(
   "/projects/:projectName/logstores",
   async (request, response, next) => {

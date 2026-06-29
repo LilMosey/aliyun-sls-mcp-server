@@ -11,6 +11,14 @@ function buildDefaultEndpoint(region: string) {
   return `${region}.log.aliyuncs.com`;
 }
 
+function assertNonEmptyString(value: unknown, name: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${name} must be a non-empty string.`);
+  }
+
+  return value;
+}
+
 function readPositiveIntegerEnv(name: string, defaultValue: number) {
   const value = process.env[name];
   if (!value) {
@@ -23,6 +31,72 @@ function readPositiveIntegerEnv(name: string, defaultValue: number) {
   }
 
   return numberValue;
+}
+
+function readAliyunLogEnvironmentMap() {
+  const defaultMap: Record<
+    string,
+    {
+      projectName: string;
+      logstoreName: string;
+    }
+  > = {
+    test: {
+      projectName: "k8s-dev",
+      logstoreName: "test"
+    }
+  };
+  const value = process.env.ALIYUN_LOG_ENVIRONMENTS;
+  if (!value) {
+    return defaultMap;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error("ALIYUN_LOG_ENVIRONMENTS must be a valid JSON object.");
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("ALIYUN_LOG_ENVIRONMENTS must be a JSON object.");
+  }
+
+  const environments: Record<
+    string,
+    {
+      projectName: string;
+      logstoreName: string;
+    }
+  > = {};
+
+  for (const [environment, target] of Object.entries(parsed)) {
+    assertNonEmptyString(environment, "environment name");
+
+    if (!target || typeof target !== "object" || Array.isArray(target)) {
+      throw new Error(
+        `ALIYUN_LOG_ENVIRONMENTS.${environment} must be an object.`
+      );
+    }
+
+    const targetRecord = target as Record<string, unknown>;
+    environments[environment] = {
+      projectName: assertNonEmptyString(
+        targetRecord.projectName,
+        `ALIYUN_LOG_ENVIRONMENTS.${environment}.projectName`
+      ),
+      logstoreName: assertNonEmptyString(
+        targetRecord.logstoreName,
+        `ALIYUN_LOG_ENVIRONMENTS.${environment}.logstoreName`
+      )
+    };
+  }
+
+  if (Object.keys(environments).length === 0) {
+    throw new Error("ALIYUN_LOG_ENVIRONMENTS must define at least one environment.");
+  }
+
+  return environments;
 }
 
 export function readAliyunLogConfig() {
@@ -58,5 +132,22 @@ export function readAliyunLogQueryConfig() {
       50
     ),
     maxPageSize
+  };
+}
+
+export function readAliyunLogEnvironmentConfig() {
+  const environments = readAliyunLogEnvironmentMap();
+  const defaultEnvironment =
+    process.env.ALIYUN_LOG_DEFAULT_ENVIRONMENT ?? "test";
+
+  if (!environments[defaultEnvironment]) {
+    throw new Error(
+      `ALIYUN_LOG_DEFAULT_ENVIRONMENT ${defaultEnvironment} is not defined in ALIYUN_LOG_ENVIRONMENTS.`
+    );
+  }
+
+  return {
+    defaultEnvironment,
+    environments
   };
 }

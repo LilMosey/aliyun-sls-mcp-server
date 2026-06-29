@@ -3,11 +3,15 @@ import type { GetLogsResponse } from "@alicloud/sls20201230/dist/models/GetLogsR
 
 import { errorToLogFields, logger } from "../../utils/logger.js";
 import { createAliyunLogClient } from "./client.js";
-import { readAliyunLogQueryConfig } from "./config.js";
+import {
+  readAliyunLogEnvironmentConfig,
+  readAliyunLogQueryConfig
+} from "./config.js";
 
 export interface QueryLogsOptions {
-  projectName: string;
-  logstoreName: string;
+  environment?: string;
+  projectName?: string;
+  logstoreName?: string;
   query?: string;
   from?: number;
   to?: number;
@@ -17,7 +21,20 @@ export interface QueryLogsOptions {
   reverse?: boolean;
 }
 
+export interface QueryLogsNextPage {
+  environment?: string;
+  projectName?: string;
+  logstoreName?: string;
+  query: string;
+  from: number;
+  to: number;
+  pageNumber: number;
+  pageSize: number;
+  reverse: boolean;
+}
+
 export interface QueryLogsResult {
+  environment: string;
   projectName: string;
   logstoreName: string;
   from: number;
@@ -30,6 +47,7 @@ export interface QueryLogsResult {
     offset: number;
     hasMore: boolean;
   };
+  nextPage?: QueryLogsNextPage;
   count: number;
   progress?: string;
   warnings: string[];
@@ -50,6 +68,13 @@ interface QueryConfig {
   emptyQueryMaxMinutes: number;
   defaultPageSize: number;
   maxPageSize: number;
+}
+
+interface LogTarget {
+  source: "environment" | "direct";
+  environment: string;
+  projectName: string;
+  logstoreName: string;
 }
 
 function assertNonEmpty(value: string, name: string) {
@@ -125,6 +150,54 @@ function resolveTimeRange(options: QueryLogsOptions, config: QueryConfig) {
   return { from, to };
 }
 
+function resolveLogTarget(options: QueryLogsOptions): LogTarget {
+  const hasProjectName = options.projectName !== undefined;
+  const hasLogstoreName = options.logstoreName !== undefined;
+
+  if (hasProjectName || hasLogstoreName) {
+    if (options.environment) {
+      throw new Error(
+        "environment cannot be used together with projectName/logstoreName."
+      );
+    }
+
+    if (!options.projectName || !options.logstoreName) {
+      throw new Error(
+        "projectName and logstoreName must be provided together."
+      );
+    }
+
+    assertNonEmpty(options.projectName, "projectName");
+    assertNonEmpty(options.logstoreName, "logstoreName");
+
+    return {
+      source: "direct",
+      environment: "custom",
+      projectName: options.projectName,
+      logstoreName: options.logstoreName
+    };
+  }
+
+  const { defaultEnvironment, environments } = readAliyunLogEnvironmentConfig();
+  const environment = options.environment ?? defaultEnvironment;
+  const target = environments[environment];
+
+  if (!target) {
+    throw new Error(
+      `Unknown aliyun log environment: ${environment}. Allowed environments: ${Object.keys(
+        environments
+      ).join(", ")}.`
+    );
+  }
+
+  return {
+    source: "environment",
+    environment,
+    projectName: target.projectName,
+    logstoreName: target.logstoreName
+  };
+}
+
 function resolvePage(options: QueryLogsOptions, config: QueryConfig) {
   const pageNumber = options.pageNumber ?? 1;
   const pageSize = options.pageSize ?? config.defaultPageSize;
@@ -197,12 +270,47 @@ function buildWarnings(query: string) {
   return warnings;
 }
 
+function buildNextPage(
+  target: LogTarget,
+  query: string,
+  from: number,
+  to: number,
+  pageNumber: number,
+  pageSize: number,
+  reverse: boolean,
+  hasMore: boolean
+): QueryLogsNextPage | undefined {
+  if (!hasMore) {
+    return undefined;
+  }
+
+  const common = {
+    query,
+    from,
+    to,
+    pageNumber: pageNumber + 1,
+    pageSize,
+    reverse
+  };
+
+  if (target.source === "environment") {
+    return {
+      environment: target.environment,
+      ...common
+    };
+  }
+
+  return {
+    projectName: target.projectName,
+    logstoreName: target.logstoreName,
+    ...common
+  };
+}
+
 export async function queryLogs(
   options: QueryLogsOptions
 ): Promise<QueryLogsResult> {
-  assertNonEmpty(options.projectName, "projectName");
-  assertNonEmpty(options.logstoreName, "logstoreName");
-
+  const target = resolveLogTarget(options);
   const config = readAliyunLogQueryConfig();
   const query = options.query?.trim() ?? "";
   const { from, to } = resolveTimeRange(options, config);
@@ -213,8 +321,9 @@ export async function queryLogs(
   const client = createAliyunLogClient();
   logger.info("Calling Aliyun Log GetLogs.", {
     operation: "aliyun-log.getLogs",
-    projectName: options.projectName,
-    logstoreName: options.logstoreName,
+    environment: target.environment,
+    projectName: target.projectName,
+    logstoreName: target.logstoreName,
     from,
     to,
     query,
@@ -227,8 +336,8 @@ export async function queryLogs(
   let response: GetLogsResponse;
   try {
     response = await client.getLogs(
-      options.projectName,
-      options.logstoreName,
+      target.projectName,
+      target.logstoreName,
       new GetLogsRequest({
         from,
         to,
@@ -242,8 +351,9 @@ export async function queryLogs(
     logger.error("Aliyun Log GetLogs failed.", {
       operation: "aliyun-log.getLogs",
       durationMs: Date.now() - startedAt,
-      projectName: options.projectName,
-      logstoreName: options.logstoreName,
+      environment: target.environment,
+      projectName: target.projectName,
+      logstoreName: target.logstoreName,
       from,
       to,
       query,
@@ -259,11 +369,23 @@ export async function queryLogs(
   const logs = (response.body ?? []).map((log) =>
     normalizeLog(log as Record<string, unknown>)
   );
+  const hasMore = logs.length === pageSize;
+  const nextPage = buildNextPage(
+    target,
+    query,
+    from,
+    to,
+    pageNumber,
+    pageSize,
+    reverse,
+    hasMore
+  );
   logger.info("Aliyun Log GetLogs succeeded.", {
     operation: "aliyun-log.getLogs",
     durationMs: Date.now() - startedAt,
-    projectName: options.projectName,
-    logstoreName: options.logstoreName,
+    environment: target.environment,
+    projectName: target.projectName,
+    logstoreName: target.logstoreName,
     from,
     to,
     query,
@@ -272,13 +394,14 @@ export async function queryLogs(
     pageSize,
     offset,
     count: logs.length,
-    hasMore: logs.length === pageSize,
+    hasMore,
     progress: response.headers?.["x-log-progress"]
   });
 
   return {
-    projectName: options.projectName,
-    logstoreName: options.logstoreName,
+    environment: target.environment,
+    projectName: target.projectName,
+    logstoreName: target.logstoreName,
     from,
     to,
     query,
@@ -287,8 +410,9 @@ export async function queryLogs(
       pageNumber,
       pageSize,
       offset,
-      hasMore: logs.length === pageSize
+      hasMore
     },
+    nextPage,
     count: logs.length,
     progress: response.headers?.["x-log-progress"],
     warnings: buildWarnings(query),
