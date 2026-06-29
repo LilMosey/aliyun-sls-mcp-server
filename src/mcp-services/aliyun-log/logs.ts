@@ -5,7 +5,8 @@ import { errorToLogFields, logger } from "../../utils/logger.js";
 import { createAliyunLogClient } from "./client.js";
 import {
   readAliyunLogEnvironmentConfig,
-  readAliyunLogQueryConfig
+  readAliyunLogQueryConfig,
+  readAliyunLogReturnFields
 } from "./config.js";
 
 export interface QueryLogsOptions {
@@ -51,15 +52,7 @@ export interface QueryLogsResult {
   count: number;
   progress?: string;
   warnings: string[];
-  logs: Array<{
-    time?: string;
-    level?: string;
-    containerName?: string;
-    podName?: string;
-    namespace?: string;
-    content?: string;
-    raw: Record<string, unknown>;
-  }>;
+  logs: Record<string, unknown>[];
 }
 
 interface QueryConfig {
@@ -224,38 +217,22 @@ function resolvePage(options: QueryLogsOptions, config: QueryConfig) {
   };
 }
 
-function pickString(log: Record<string, unknown>, names: string[]) {
-  for (const name of names) {
-    const value = log[name];
-    if (typeof value === "string") {
-      return value;
-    }
-    if (typeof value === "number" || typeof value === "boolean") {
-      return String(value);
+function filterLogFields(
+  log: Record<string, unknown>,
+  returnFields: string[] | undefined
+) {
+  if (!returnFields) {
+    return log;
+  }
+
+  const filteredLog: Record<string, unknown> = {};
+  for (const field of returnFields) {
+    if (log[field] !== undefined) {
+      filteredLog[field] = log[field];
     }
   }
 
-  return undefined;
-}
-
-function normalizeLog(log: Record<string, unknown>) {
-  return {
-    time: pickString(log, ["time", "__time__", "_time_"]),
-    level: pickString(log, ["level"]),
-    containerName: pickString(log, [
-      "_container_name_",
-      "__container_name__",
-      "containerName"
-    ]),
-    podName: pickString(log, ["_pod_name_", "__pod_name__", "podName"]),
-    namespace: pickString(log, [
-      "_namespace_",
-      "__namespace__",
-      "namespace"
-    ]),
-    content: pickString(log, ["content", "message"]),
-    raw: log
-  };
+  return filteredLog;
 }
 
 function buildWarnings(query: string) {
@@ -312,6 +289,7 @@ export async function queryLogs(
 ): Promise<QueryLogsResult> {
   const target = resolveLogTarget(options);
   const config = readAliyunLogQueryConfig();
+  const returnFields = readAliyunLogReturnFields();
   const query = options.query?.trim() ?? "";
   const { from, to } = resolveTimeRange(options, config);
   const { pageNumber, pageSize, offset } = resolvePage(options, config);
@@ -367,7 +345,7 @@ export async function queryLogs(
   }
 
   const logs = (response.body ?? []).map((log) =>
-    normalizeLog(log as Record<string, unknown>)
+    filterLogFields(log as Record<string, unknown>, returnFields)
   );
   const hasMore = logs.length === pageSize;
   const nextPage = buildNextPage(

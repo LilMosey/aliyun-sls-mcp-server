@@ -99,6 +99,24 @@ function readAliyunLogEnvironmentMap() {
   return environments;
 }
 
+export function readAliyunLogReturnFields() {
+  const value = process.env.ALIYUN_LOG_RETURN_FIELDS;
+  if (!value) {
+    return undefined;
+  }
+
+  const fields = value
+    .split(",")
+    .map((field) => field.trim())
+    .filter(Boolean);
+
+  if (fields.length === 0) {
+    return undefined;
+  }
+
+  return fields;
+}
+
 export function readAliyunLogConfig() {
   const region = readRequiredEnv("ALIYUN_LOG_REGION");
 

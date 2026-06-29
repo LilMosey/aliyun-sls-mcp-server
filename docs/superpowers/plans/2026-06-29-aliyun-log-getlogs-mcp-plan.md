@@ -78,7 +78,10 @@ ALIYUN_LOG_MAX_QUERY_MINUTES=30
 ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES=5
 ALIYUN_LOG_DEFAULT_PAGE_SIZE=50
 ALIYUN_LOG_MAX_PAGE_SIZE=100
+ALIYUN_LOG_RETURN_FIELDS=time,level,_container_name_,_pod_name_,_namespace_,content
 ```
+
+`ALIYUN_LOG_RETURN_FIELDS` 不配置时，每条日志返回阿里云原始日志的全部字段；配置后只返回列出的原始字段名。例如服务名字段应配置 `_container_name_`，而不是 `containerName`。
 
 ### 返回结构
 
@@ -97,15 +100,7 @@ ALIYUN_LOG_MAX_PAGE_SIZE=100
     hasMore: boolean;
   };
   count: number;
-  logs: Array<{
-    time?: string;
-    level?: string;
-    containerName?: string;
-    podName?: string;
-    namespace?: string;
-    content?: string;
-    raw: Record<string, unknown>;
-  }>;
+  logs: Array<Record<string, unknown>>;
 }
 ```
 

@@ -60,9 +60,22 @@ ALIYUN_LOG_MAX_QUERY_MINUTES=30
 ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES=5
 ALIYUN_LOG_DEFAULT_PAGE_SIZE=50
 ALIYUN_LOG_MAX_PAGE_SIZE=100
+ALIYUN_LOG_RETURN_FIELDS=time,level,_container_name_,_pod_name_,_namespace_,content
 ```
 
 `.env.example` 是提交到 Git 的模板，不放真实密钥。`.env.local` 是本机真实配置，已经被 `.gitignore` 忽略，不会上传到 GitHub。
+
+`ALIYUN_LOG_RETURN_FIELDS` 用来控制每条日志返回哪些字段，不配置时返回阿里云原始日志的全部字段。配置时填写阿里云原始字段名，例如：
+
+```text
+time,level,_container_name_,_pod_name_,_namespace_,content
+```
+
+字段名要和阿里云返回保持一致，例如服务名字段是 `_container_name_`，不是 `containerName`。如果要调试字段，可以先不配置 `ALIYUN_LOG_RETURN_FIELDS`，这样会返回原始日志的全部字段。
+
+```bash
+ALIYUN_LOG_RETURN_FIELDS=time,level,_container_name_,_pod_name_,_namespace_,content,__time__
+```
 
 启动服务：
 
