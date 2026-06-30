@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
 
+import type { GetHistogramsRequest } from "@alicloud/sls20201230/dist/models/GetHistogramsRequest.js";
+import type { GetHistogramsResponse } from "@alicloud/sls20201230/dist/models/GetHistogramsResponse.js";
 import type { GetLogsV2Request } from "@alicloud/sls20201230/dist/models/GetLogsV2request.js";
 import type { GetLogsV2Response } from "@alicloud/sls20201230/dist/models/GetLogsV2response.js";
 import type { ListLogStoresRequest } from "@alicloud/sls20201230/dist/models/ListLogStoresRequest.js";
@@ -20,6 +22,11 @@ interface AliyunLogClient {
     logstore: string,
     request: GetLogsV2Request
   ): Promise<GetLogsV2Response>;
+  getHistograms(
+    project: string,
+    logstore: string,
+    request: GetHistogramsRequest
+  ): Promise<GetHistogramsResponse>;
 }
 
 type AliyunLogClientConstructor = new (config: {

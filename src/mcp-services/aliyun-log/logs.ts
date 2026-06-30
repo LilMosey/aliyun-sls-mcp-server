@@ -59,7 +59,7 @@ export interface QueryLogsResult {
   logs: Record<string, unknown>[];
 }
 
-interface QueryConfig {
+export interface QueryConfig {
   defaultQueryMinutes: number;
   maxQueryMinutes: number;
   emptyQueryMaxMinutes: number;
@@ -70,7 +70,7 @@ interface QueryConfig {
   maxPageSize: number;
 }
 
-interface LogTarget {
+export interface LogTarget {
   source: "environment" | "direct";
   environment: string;
   projectName: string;
@@ -125,7 +125,7 @@ function buildContainerNameQuery(containerNames: string[]) {
   return parts.length === 1 ? parts[0] : `(${parts.join(" or ")})`;
 }
 
-function buildEffectiveQuery(options: QueryLogsOptions) {
+export function buildEffectiveQuery(options: QueryLogsOptions) {
   const parts: string[] = [];
   const query = options.query?.trim();
   const containerNames = normalizeStringArray(
@@ -174,7 +174,10 @@ function resolveTraceId(options: QueryLogsOptions, config: QueryConfig) {
   return traceId;
 }
 
-function resolveTimeRange(options: QueryLogsOptions, config: QueryConfig) {
+export function resolveTimeRange(
+  options: QueryLogsOptions,
+  config: QueryConfig
+) {
   const hasFrom = options.from !== undefined;
   const hasTo = options.to !== undefined;
   const hasMinutes = options.minutes !== undefined;
@@ -233,7 +236,7 @@ function resolveTimeRange(options: QueryLogsOptions, config: QueryConfig) {
   return { from, to };
 }
 
-function resolveLogTarget(options: QueryLogsOptions): LogTarget {
+export function resolveLogTarget(options: QueryLogsOptions): LogTarget {
   const hasProjectName = options.projectName !== undefined;
   const hasLogstoreName = options.logstoreName !== undefined;
 
@@ -325,7 +328,7 @@ function filterLogFields(
   return filteredLog;
 }
 
-function buildWarnings(query: string) {
+export function buildWarnings(query: string) {
   const warnings: string[] = [];
 
   if (query.includes("|")) {

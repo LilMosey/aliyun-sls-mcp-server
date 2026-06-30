@@ -1,10 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
+import { queryHistograms } from "./mcp-services/aliyun-log/histograms.js";
 import { listLogStores } from "./mcp-services/aliyun-log/logstores.js";
 import { queryLogs } from "./mcp-services/aliyun-log/logs.js";
 import { listProjects } from "./mcp-services/aliyun-log/projects.js";
 import {
   aliyunLogToolNames,
+  getHistogramsToolConfig,
   listLogstoresToolConfig,
   listProjectsToolConfig,
   queryLogsToolConfig
@@ -176,6 +178,84 @@ export function registerAliyunLogTools(server: McpServer) {
               logstoreName: result.logstoreName,
               count: result.count,
               hasMore: result.page.hasMore,
+              progress: result.progress ?? null
+            }
+          },
+          extra.sessionId
+        );
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      }
+    ),
+
+    getHistograms: server.registerTool(
+      aliyunLogToolNames.getHistograms,
+      getHistogramsToolConfig,
+      async (
+        {
+          environment,
+          projectName,
+          logstoreName,
+          query,
+          containerNames,
+          level,
+          traceId,
+          keywords,
+          from,
+          to,
+          minutes
+        },
+        extra
+      ) => {
+        await server.sendLoggingMessage(
+          {
+            level: "info",
+            data: {
+              message: "开始查询阿里云日志分布",
+              environment: environment ?? null,
+              projectName: projectName ?? null,
+              logstoreName: logstoreName ?? null,
+              query: query ?? null,
+              containerNames: containerNames ?? null,
+              level: level ?? null,
+              traceId: traceId ?? null,
+              keywords: keywords ?? null
+            }
+          },
+          extra.sessionId
+        );
+
+        const result = await queryHistograms({
+          environment,
+          projectName,
+          logstoreName,
+          query,
+          containerNames,
+          level,
+          traceId,
+          keywords,
+          from,
+          to,
+          minutes
+        });
+
+        await server.sendLoggingMessage(
+          {
+            level: "info",
+            data: {
+              message: "阿里云日志分布查询完成",
+              environment: result.environment,
+              projectName: result.projectName,
+              logstoreName: result.logstoreName,
+              total: result.total,
+              count: result.histograms.length,
               progress: result.progress ?? null
             }
           },

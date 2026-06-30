@@ -1,5 +1,6 @@
 import { Router } from "express";
 
+import { queryHistograms } from "./histograms.js";
 import { listLogStores } from "./logstores.js";
 import { queryLogs } from "./logs.js";
 import { listProjects } from "./projects.js";
@@ -89,6 +90,26 @@ aliyunLogRouter.get("/logs", async (request, response, next) => {
   }
 });
 
+aliyunLogRouter.get("/histograms", async (request, response, next) => {
+  try {
+    const result = await queryHistograms({
+      environment: readStringQuery(request.query.environment),
+      query: readStringQuery(request.query.query),
+      containerNames: readStringArrayQuery(request.query.containerNames),
+      level: readLevelQuery(request.query.level),
+      traceId: readStringQuery(request.query.traceId),
+      keywords: readStringArrayQuery(request.query.keywords),
+      from: readNumberQuery(request.query.from),
+      to: readNumberQuery(request.query.to),
+      minutes: readNumberQuery(request.query.minutes)
+    });
+
+    response.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 aliyunLogRouter.get(
   "/projects/:projectName/logstores",
   async (request, response, next) => {
@@ -133,6 +154,30 @@ aliyunLogRouter.get(
         pageNumber: readNumberQuery(request.query.pageNumber),
         pageSize: readNumberQuery(request.query.pageSize),
         reverse: readBooleanQuery(request.query.reverse)
+      });
+
+      response.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+aliyunLogRouter.get(
+  "/projects/:projectName/logstores/:logstoreName/histograms",
+  async (request, response, next) => {
+    try {
+      const result = await queryHistograms({
+        projectName: request.params.projectName,
+        logstoreName: request.params.logstoreName,
+        query: readStringQuery(request.query.query),
+        containerNames: readStringArrayQuery(request.query.containerNames),
+        level: readLevelQuery(request.query.level),
+        traceId: readStringQuery(request.query.traceId),
+        keywords: readStringArrayQuery(request.query.keywords),
+        from: readNumberQuery(request.query.from),
+        to: readNumberQuery(request.query.to),
+        minutes: readNumberQuery(request.query.minutes)
       });
 
       response.json(result);
