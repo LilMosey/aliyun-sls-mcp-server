@@ -67,9 +67,9 @@ export const listLogstoresToolConfig = {
 };
 
 export const queryLogsToolConfig = {
-  title: "查询阿里云日志",
+  title: "查询日志",
   description:
-    "查询阿里云 SLS 日志，用于线上故障排查、日常研发查日志、任意服务的报错日志查询、traceId/TID 链路日志查询。用户提到 test、staging 等环境，任意服务名/容器名的日志，最近 N 分钟报错日志，error/warn/info 日志，traceId/TID 查询时，应优先使用本工具。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用阿里云 SLS 查询语法。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。服务端会把 query、containerNames、level、traceId、keywords 用 and 拼成最终查询条件。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
+    "查询日志、SLS 日志、线上日志、服务日志；底层数据源是阿里云 SLS。用于线上故障排查、日常研发查日志、任意服务的报错日志查询、traceId/TID 链路日志查询。用户要求“查日志”“查询日志”“查 SLS”“查询 SLS”“查服务日志”“查线上日志”，或提到 test、staging 等环境，任意服务名/容器名的日志，最近 N 分钟报错日志，error/warn/info 日志，traceId/TID 查询时，应优先使用本工具。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用 SLS 查询语法。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。服务端会把 query、containerNames、level、traceId、keywords 用 and 拼成最终查询条件。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
   inputSchema: {
     environment: z
       .string()
@@ -147,9 +147,9 @@ export const queryLogsToolConfig = {
 };
 
 export const getHistogramsToolConfig = {
-  title: "查询阿里云日志分布",
+  title: "查询日志分布",
   description:
-    "查询阿里云 SLS 日志数量的时间分布，用于判断任意服务的报错是否突增、故障大概从什么时候开始、某个服务最近一段时间是否有 error/warn/info 日志。用户提到“错误趋势”“报错分布”“最近 N 分钟/小时每段时间多少错误”“故障从什么时候开始”时，应优先使用本工具。本工具只返回每个时间段的日志数量，不返回日志明细；如果需要具体日志内容，再使用 aliyun_log_query_logs。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用阿里云 SLS 查询语法。",
+    "查询日志分布、SLS 日志分布、线上日志趋势、服务日志趋势；底层数据源是阿里云 SLS。用于判断任意服务的报错是否突增、故障大概从什么时候开始、某个服务最近一段时间是否有 error/warn/info 日志。用户要求“看日志趋势”“查日志分布”“查 SLS 分布”“看报错趋势”“最近 N 分钟/小时每段时间多少错误”“故障从什么时候开始”时，应优先使用本工具。本工具只返回每个时间段的日志数量，不返回日志明细；如果需要具体日志内容，再使用 aliyun_log_query_logs。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用 SLS 查询语法。",
   inputSchema: {
     environment: z
       .string()
