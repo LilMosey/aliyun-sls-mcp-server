@@ -174,12 +174,14 @@ export function createMcpServer() {
     {
       title: "查询阿里云日志",
       description:
-        "查询阿里云日志。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。可以直接传 query，也可以传 containerNames、level、traceId、keywords 让服务端自动用 and 拼接最终 query。常用查询字段：服务字段 _container_name_，日志级别字段 level，级别只有 info、warn、error，traceId 通常查 content。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
+        "查询阿里云 SLS 日志，用于线上故障排查、日常研发查日志、服务报错日志查询、traceId/TID 链路日志查询。用户提到 test、staging 等环境，某个服务/容器的日志，最近 N 分钟报错日志，error/warn/info 日志，traceId/TID 查询时，应优先使用本工具。环境请传 environment，服务名请传 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用阿里云 SLS 查询语法。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。服务端会把 query、containerNames、level、traceId、keywords 用 and 拼成最终查询条件。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
       inputSchema: {
         environment: z
           .string()
           .optional()
-          .describe("环境名称，例如 test、staging。不传时使用默认环境 test。"),
+          .describe(
+            "日志环境名称，例如 test、staging。不传时使用默认环境 test。用户说“测试环境”“staging 环境”等，一般映射到这个参数。"
+          ),
         projectName: z
           .string()
           .optional()
@@ -192,20 +194,26 @@ export function createMcpServer() {
           .string()
           .optional()
           .describe(
-            "阿里云日志查询语句。可以和结构化参数混用，最终会用 and 拼接，例如 query + level + containerNames。"
+            "阿里云 SLS 原生查询语句。用户已经给出完整查询条件时传这里，例如 (_container_name_:order-service or _container_name_:pay-service) and level:error。可以和 containerNames、level、traceId、keywords 混用。"
           ),
         containerNames: z
           .array(z.string())
           .optional()
-          .describe("服务名列表/项目名列表，会拼成 _container_name_ 查询；多个服务用 or 包在括号里。"),
+          .describe(
+            "服务名/容器名列表，例如 lbk-crm-teacher-web-api、order-service、pay-service。用户说“查某个服务的日志/报错日志”时，一般传这里；多个服务会用 or 查询。"
+          ),
         level: z
           .enum(["info", "warn", "error"])
           .optional()
-          .describe("日志级别，只支持 info、warn、error。"),
+          .describe(
+            "日志级别，只支持 info、warn、error。用户说“报错日志”“错误日志”“error 日志”时，一般传 error。"
+          ),
         traceId: z
           .string()
           .optional()
-          .describe("traceId，会拼成 content: \"traceId\"。不传时间范围时，traceId 查询默认最近 7 天。"),
+          .describe(
+            "traceId 或 TID，用于查询整条链路日志，会拼成 content: \"traceId\"。不传时间范围时默认最近 7 天。"
+          ),
         keywords: z
           .array(z.string())
           .optional()
