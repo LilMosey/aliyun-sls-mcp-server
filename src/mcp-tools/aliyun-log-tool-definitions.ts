@@ -69,7 +69,7 @@ export const listLogstoresToolConfig = {
 export const queryLogsToolConfig = {
   title: "查询阿里云日志",
   description:
-    "查询阿里云 SLS 日志，用于线上故障排查、日常研发查日志、服务报错日志查询、traceId/TID 链路日志查询。用户提到 test、staging 等环境，某个服务/容器的日志，最近 N 分钟报错日志，error/warn/info 日志，traceId/TID 查询时，应优先使用本工具。环境请传 environment，服务名请传 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用阿里云 SLS 查询语法。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。服务端会把 query、containerNames、level、traceId、keywords 用 and 拼成最终查询条件。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
+    "查询阿里云 SLS 日志，用于线上故障排查、日常研发查日志、任意服务的报错日志查询、traceId/TID 链路日志查询。用户提到 test、staging 等环境，任意服务名/容器名的日志，最近 N 分钟报错日志，error/warn/info 日志，traceId/TID 查询时，应优先使用本工具。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用阿里云 SLS 查询语法。优先传 environment，不传默认 test；也可以直接传 projectName + logstoreName 调试。服务端会把 query、containerNames、level、traceId、keywords 用 and 拼成最终查询条件。传 traceId 且不传 from/to/minutes 时默认查最近 7 天；普通非空查询默认最近 15 分钟。分页时如果返回 nextPage，下一次调用应直接使用 nextPage 参数，避免重新计算时间窗口。",
   inputSchema: {
     environment: z
       .string()
@@ -89,13 +89,13 @@ export const queryLogsToolConfig = {
       .string()
       .optional()
       .describe(
-        "阿里云 SLS 原生查询语句。用户已经给出完整查询条件时传这里，例如 (_container_name_:order-service or _container_name_:pay-service) and level:error。可以和 containerNames、level、traceId、keywords 混用。"
+        "阿里云 SLS 原生查询语句。用户已经给出完整查询条件时传这里，例如 (_container_name_:服务A or _container_name_:服务B) and level:error。可以和 containerNames、level、traceId、keywords 混用。"
       ),
     containerNames: z
       .array(z.string())
       .optional()
       .describe(
-        "服务名/容器名列表，例如 lbk-crm-teacher-web-api、order-service、pay-service。用户说“查某个服务的日志/报错日志”时，一般传这里；多个服务会用 or 查询。"
+        "任意服务名/容器名列表。用户说“查某个服务的日志/报错日志”时，把用户原文中的服务名原样放到这里；多个服务会用 or 查询。"
       ),
     level: z
       .enum(["info", "warn", "error"])
@@ -149,7 +149,7 @@ export const queryLogsToolConfig = {
 export const getHistogramsToolConfig = {
   title: "查询阿里云日志分布",
   description:
-    "查询阿里云 SLS 日志数量的时间分布，用于判断报错是否突增、故障大概从什么时候开始、某个服务最近一段时间是否有 error/warn/info 日志。用户提到“错误趋势”“报错分布”“最近 N 分钟/小时每段时间多少错误”“故障从什么时候开始”时，应优先使用本工具。本工具只返回每个时间段的日志数量，不返回日志明细；如果需要具体日志内容，再使用 aliyun_log_query_logs。环境请传 environment，服务名请传 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用阿里云 SLS 查询语法。",
+    "查询阿里云 SLS 日志数量的时间分布，用于判断任意服务的报错是否突增、故障大概从什么时候开始、某个服务最近一段时间是否有 error/warn/info 日志。用户提到“错误趋势”“报错分布”“最近 N 分钟/小时每段时间多少错误”“故障从什么时候开始”时，应优先使用本工具。本工具只返回每个时间段的日志数量，不返回日志明细；如果需要具体日志内容，再使用 aliyun_log_query_logs。环境请传 environment，用户说到的服务名或容器名请原样放入 containerNames，日志级别请传 level，traceId/TID 请传 traceId。也支持直接传 query 使用阿里云 SLS 查询语法。",
   inputSchema: {
     environment: z
       .string()
@@ -169,13 +169,13 @@ export const getHistogramsToolConfig = {
       .string()
       .optional()
       .describe(
-        "阿里云 SLS 原生查询语句。用户已经给出完整查询条件时传这里，例如 (_container_name_:order-service or _container_name_:pay-service) and level:error。可以和 containerNames、level、traceId、keywords 混用。"
+        "阿里云 SLS 原生查询语句。用户已经给出完整查询条件时传这里，例如 (_container_name_:服务A or _container_name_:服务B) and level:error。可以和 containerNames、level、traceId、keywords 混用。"
       ),
     containerNames: z
       .array(z.string())
       .optional()
       .describe(
-        "服务名/容器名列表，例如 lbk-crm-teacher-web-api、order-service、pay-service。用户说“查看某个服务的错误分布/日志趋势”时，一般传这里；多个服务会用 or 查询。"
+        "任意服务名/容器名列表。用户说“查看某个服务的错误分布/日志趋势”时，把用户原文中的服务名原样放到这里；多个服务会用 or 查询。"
       ),
     level: z
       .enum(["info", "warn", "error"])
