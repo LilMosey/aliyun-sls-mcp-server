@@ -1,6 +1,6 @@
-# MCP-SERVER
+# aliyun-sls-mcp-server
 
-这是一个 TypeScript + Express 项目，用来承载后续的 MCP 服务。
+这是一个 TypeScript + Express 项目，用来承载阿里云 SLS MCP 服务。
 
 当前已经包含健康检查、阿里云日志 HTTP 调试接口，以及 Streamable HTTP MCP 服务。
 
@@ -33,7 +33,7 @@ curl http://localhost:3000/health
 ```json
 {
   "status": "ok",
-  "service": "mcp-server"
+  "service": "aliyun-sls-mcp-server"
 }
 ```
 

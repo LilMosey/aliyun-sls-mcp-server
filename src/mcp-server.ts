@@ -278,7 +278,7 @@ export function registerAliyunLogTools(server: McpServer) {
 export function createMcpServer() {
   const server = new McpServer(
     {
-      name: "mcp-service",
+      name: "aliyun-sls-mcp-server",
       version: "0.1.0"
     },
     {

@@ -24,7 +24,7 @@
 
 - [x] **Step 2: 创建环境变量示例**
 
-提供 `PORT=3000` 和 `SERVICE_NAME=mcp-server`。
+提供 `PORT=3000` 和 `SERVICE_NAME=aliyun-sls-mcp-server`。
 
 ### Task 2: 健康检查服务
 
@@ -37,7 +37,7 @@
 
 - [x] **Step 1: 先写健康检查测试**
 
-测试健康检查响应体为 `{ "status": "ok", "service": "mcp-server" }`。当前沙箱不允许测试进程监听临时端口，所以 HTTP 路径通过启动服务后 `curl http://localhost:3000/health` 验证。
+测试健康检查响应体为 `{ "status": "ok", "service": "aliyun-sls-mcp-server" }`。当前沙箱不允许测试进程监听临时端口，所以 HTTP 路径通过启动服务后 `curl http://localhost:3000/health` 验证。
 
 - [x] **Step 2: 实现 Express 应用和健康检查路由**
 
@@ -92,7 +92,7 @@ Run:
 
 ```bash
 git init
-git remote add origin https://github.com/LilMosey/MCP-SERVER.git
+git remote add origin https://github.com/LilMosey/aliyun-sls-mcp-server.git
 git add -A
 git commit -m "chore: initialize mcp server"
 git branch -M main

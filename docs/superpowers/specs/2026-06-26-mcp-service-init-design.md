@@ -41,7 +41,7 @@
 ```json
 {
   "status": "ok",
-  "service": "mcp-server"
+  "service": "aliyun-sls-mcp-server"
 }
 ```
 

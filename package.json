@@ -1,7 +1,11 @@
 {
-  "name": "mcp-server",
+  "name": "aliyun-sls-mcp-server",
   "version": "0.1.0",
-  "description": "TypeScript Express based MCP services for MySQL metadata and Aliyun Log.",
+  "description": "TypeScript Express based MCP server for Aliyun SLS.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LilMosey/aliyun-sls-mcp-server.git"
+  },
   "type": "module",
   "main": "dist/src/server.js",
   "scripts": {

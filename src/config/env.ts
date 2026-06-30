@@ -18,5 +18,5 @@ function readPort(value: string | undefined) {
 
 export const env = {
   port: readPort(process.env.PORT),
-  serviceName: process.env.SERVICE_NAME ?? "mcp-server"
+  serviceName: process.env.SERVICE_NAME ?? "aliyun-sls-mcp-server"
 };
