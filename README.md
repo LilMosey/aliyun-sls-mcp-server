@@ -14,30 +14,20 @@
 
 ## 效果展示
 
-后续可以在这里补充截图，例如 Agent 查询日志、查看错误趋势、查询 traceId 链路的效果图。
+- 查询最近15分钟错误日志
+<img width="3024" height="1740" alt="image" src="https://github.com/user-attachments/assets/c667fe0a-eaca-47d0-a133-59deb01b7c2d" />
 
-```md
-![查询服务错误日志](docs/images/query-error-logs.png)
-![查看日志分布趋势](docs/images/query-log-histograms.png)
-![查询 traceId 链路日志](docs/images/query-trace-logs.png)
-```
+- 查询某个服务的错误日志
+<img width="3024" height="1740" alt="image" src="https://github.com/user-attachments/assets/e8a94492-7706-4979-a835-e8af01b1d48c" />
+<img width="2056" height="964" alt="image" src="https://github.com/user-attachments/assets/0fd64a9b-9f05-44ef-bb79-933d878b7e7f" />
 
-典型对话效果：
+- 通过链路id查询错误日志，并分析问题
+<img width="3024" height="1740" alt="image" src="https://github.com/user-attachments/assets/8c1d9024-be5e-4430-bdde-214dbd5e9f6c" />
+<img width="3024" height="1740" alt="image" src="https://github.com/user-attachments/assets/35e6a215-d7fe-4f3e-b7b6-6be10f06b398" />
 
-```text
-用户：帮我查询 staging 环境 user-service 最近 30 分钟的 error 日志
-Agent：查询到 3 条错误日志，主要集中在 14:21-14:24，错误信息为 ...
-```
+- 查看某个服务在一段时间内的日志数量分布和报错趋势
+<img width="1788" height="1272" alt="image" src="https://github.com/user-attachments/assets/61270e82-42c5-47be-8730-b2977ce6e041" />
 
-```text
-用户：帮我看 staging 环境 user-service 最近 2 小时 error 日志分布，判断有没有突增
-Agent：最近 2 小时共 128 条 error，14:30-14:40 出现明显峰值，建议继续查询该时间段错误明细。
-```
-
-```text
-用户：帮我查询这个 traceId 的链路日志：b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053
-Agent：已查询到 gateway、user-service、order-service 相关日志，调用链路大致为 ...
-```
 
 ## 功能特性
 
