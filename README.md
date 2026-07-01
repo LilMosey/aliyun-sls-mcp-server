@@ -14,13 +14,17 @@
 
 ## 效果展示
 
-后续可以在这里补充截图，例如 Agent 查询日志、查看错误趋势、查询 traceId 链路的效果图。
+- 查询最近15分钟错误日志
+<img width="3024" height="1740" alt="image" src="https://github.com/user-attachments/assets/c667fe0a-eaca-47d0-a133-59deb01b7c2d" />
+- 查询某个服务的错误日志
+<img width="3024" height="1740" alt="image" src="https://github.com/user-attachments/assets/e8a94492-7706-4979-a835-e8af01b1d48c" />
+<img width="2056" height="964" alt="image" src="https://github.com/user-attachments/assets/0fd64a9b-9f05-44ef-bb79-933d878b7e7f" />
+- 通过链路id查询错误日志，并分析问题
+<img width="3024" height="1740" alt="image" src="https://github.com/user-attachments/assets/8c1d9024-be5e-4430-bdde-214dbd5e9f6c" />
+<img width="3024" height="1740" alt="image" src="https://github.com/user-attachments/assets/35e6a215-d7fe-4f3e-b7b6-6be10f06b398" />
+- 查看某个服务在一段时间内的日志数量分布和报错趋势
+<img width="1788" height="1272" alt="image" src="https://github.com/user-attachments/assets/61270e82-42c5-47be-8730-b2977ce6e041" />
 
-```md
-![查询服务错误日志](docs/images/query-error-logs.png)
-![查看日志分布趋势](docs/images/query-log-histograms.png)
-![查询 traceId 链路日志](docs/images/query-trace-logs.png)
-```
 
 典型对话效果：
 
