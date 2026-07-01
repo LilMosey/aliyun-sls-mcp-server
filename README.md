@@ -1,28 +1,134 @@
 # aliyun-sls-mcp-server
 
-这是一个 TypeScript + Express 项目，用来承载阿里云 SLS MCP 服务。
+`aliyun-sls-mcp-server` 是一个基于 TypeScript + Express 的 MCP 服务，用于让 AI Agent 通过 MCP 查询阿里云日志服务 SLS。
 
-当前已经包含健康检查、阿里云日志 HTTP 调试接口，以及 Streamable HTTP MCP 服务。
+它适合这些场景：
 
-## 服务规划
+- 线上故障排查
+- 日常研发查日志
+- 查询某些服务的 error/warn/info 日志
+- 通过 traceId/TID 查询链路日志
+- 查看某个服务在一段时间内的日志数量分布和报错趋势
 
-- MySQL 元数据 MCP 服务：后续用于告诉大模型某个 MySQL 实例有哪些表、表结构是什么、字段含义是什么，以及是否需要补充索引等建议。
-- 阿里云日志 MCP 服务：后续用于封装阿里云日志相关能力。
+底层数据源是阿里云 SLS，当前服务只做只读查询，不写入日志，不修改 SLS 配置。
 
-## 本地启动
+## 效果展示
+
+后续可以在这里补充截图，例如 Agent 查询日志、查看错误趋势、查询 traceId 链路的效果图。
+
+```md
+![查询服务错误日志](docs/images/query-error-logs.png)
+![查看日志分布趋势](docs/images/query-log-histograms.png)
+![查询 traceId 链路日志](docs/images/query-trace-logs.png)
+```
+
+典型对话效果：
+
+```text
+用户：帮我查询 staging 环境 user-service 最近 30 分钟的 error 日志
+Agent：查询到 3 条错误日志，主要集中在 14:21-14:24，错误信息为 ...
+```
+
+```text
+用户：帮我看 staging 环境 user-service 最近 2 小时 error 日志分布，判断有没有突增
+Agent：最近 2 小时共 128 条 error，14:30-14:40 出现明显峰值，建议继续查询该时间段错误明细。
+```
+
+```text
+用户：帮我查询这个 traceId 的链路日志：b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053
+Agent：已查询到 gateway、user-service、order-service 相关日志，调用链路大致为 ...
+```
+
+## 功能特性
+
+- 查询当前账号可访问的 SLS Project
+- 查询某个 Project 下的 Logstore
+- 查询日志明细，底层使用 `GetLogsV2`
+- 查询日志数量分布，底层使用 `GetHistograms`
+- 支持按环境映射 Project + Logstore，例如 `test`、`staging`、`prod`
+- 支持按服务名/容器名查询，字段默认使用 `_container_name_`
+- 支持 `info`、`warn`、`error` 日志级别
+- 支持 traceId/TID 查询，默认可查最近 7 天，可配置
+- 支持分页，返回 `nextPage` 方便 Agent 继续翻页
+- 支持限制返回字段，减少模型上下文占用
+- 提供 Streamable HTTP MCP 服务
+- 提供 HTTP 调试接口，方便用浏览器、Postman 或 curl 验证
+
+## 不适合做什么
+
+当前项目定位是“查日志”和“辅助排障”，不建议用它做 SLS 管理操作。
+
+当前不支持，也不计划默认开放这些高风险能力：
+
+- 写入日志
+- 创建或删除 Project/Logstore
+- 创建、修改或删除索引
+- 修改告警、仪表盘、投递任务
+- 管理机器组、Logtail 配置
+- 执行无限制的大范围 SQL 分析
+
+## 官方文档
+
+本项目基于阿里云 SLS OpenAPI 构建，建议先阅读官方文档了解 SLS 的查询语法、权限和接口限制。
+
+- [阿里云日志服务 SLS 文档](https://help.aliyun.com/zh/sls/)
+- [SLS OpenAPI 概览](https://help.aliyun.com/zh/sls/developer-reference/api-sls-2020-12-30-overview)
+- [GetLogsV2 查询日志](https://help.aliyun.com/zh/sls/developer-reference/api-sls-2020-12-30-getlogsv2)
+- [GetHistograms 查询日志分布](https://help.aliyun.com/zh/sls/developer-reference/api-sls-2020-12-30-gethistograms)
+
+如果具体 API 链接发生变化，以 SLS OpenAPI 概览和阿里云控制台文档入口为准。
+
+## 获取阿里云访问凭证
+
+本服务通过阿里云 OpenAPI 访问 SLS，需要配置 AccessKey。
+
+建议创建一个专用 RAM 用户，并只授予 SLS 只读查询权限。不要使用阿里云主账号 AccessKey。
+
+参考文档：
+
+- [创建 AccessKey](https://help.aliyun.com/zh/ram/user-guide/create-an-accesskey-pair)
+- [RAM 用户概览](https://help.aliyun.com/zh/ram/user-guide/users)
+- [为 RAM 用户授权](https://help.aliyun.com/zh/ram/user-guide/grant-permissions-to-the-ram-user)
+
+当前服务至少需要这些 SLS 查询能力：
+
+- 查询 Project
+- 查询 Logstore
+- 查询日志明细，`GetLogsV2`
+- 查询日志分布，`GetHistograms`
+
+RAM 权限策略里的 Action 名称建议以阿里云官方权限文档和控制台生成为准。生产环境请使用最小权限，不要授予写入、删除、索引修改、告警修改等权限。
+
+## 快速开始
 
 ```bash
+git clone https://github.com/LilMosey/aliyun-sls-mcp-server.git
+cd aliyun-sls-mcp-server
 npm install
+cp .env.example .env.local
+```
+
+编辑 `.env.local`，填入你的阿里云配置：
+
+```bash
+PORT=3000
+SERVICE_NAME=aliyun-sls-mcp-server
+
+ALIYUN_LOG_ACCESS_KEY_ID="你的AccessKeyId"
+ALIYUN_LOG_ACCESS_KEY_SECRET="你的AccessKeySecret"
+ALIYUN_LOG_REGION=cn-hangzhou
+
+ALIYUN_LOG_DEFAULT_ENVIRONMENT=test
+ALIYUN_LOG_ENVIRONMENTS={"test":{"projectName":"k8s-dev","logstoreName":"test"},"staging":{"projectName":"k8s-dev","logstoreName":"staging"}}
+```
+
+启动开发服务：
+
+```bash
 npm run dev
 ```
 
-默认端口是 `3000`，可以通过 `.env` 修改：
-
-```bash
-cp .env.example .env
-```
-
-## 健康检查
+健康检查：
 
 ```bash
 curl http://localhost:3000/health
@@ -37,324 +143,285 @@ curl http://localhost:3000/health
 }
 ```
 
-## 阿里云日志调试接口
+## 环境变量
 
-这里是阿里云日志服务 `ListProject` API 的 HTTP 调试入口，方便本地直接用浏览器或 `curl` 验证。
+`.env.example` 是提交到 Git 的模板，不应该放真实密钥。`.env.local` 用于保存本机真实配置，已经被 `.gitignore` 忽略。
 
-先复制本地环境变量文件：
+| 变量 | 必填 | 默认值 | 说明 |
+|---|---:|---|---|
+| `PORT` | 否 | `3000` | HTTP 服务端口 |
+| `SERVICE_NAME` | 否 | `aliyun-sls-mcp-server` | 健康检查返回的服务名 |
+| `ALIYUN_LOG_ACCESS_KEY_ID` | 是 | 无 | 阿里云 AccessKey ID |
+| `ALIYUN_LOG_ACCESS_KEY_SECRET` | 是 | 无 | 阿里云 AccessKey Secret |
+| `ALIYUN_LOG_REGION` | 是 | 无 | SLS 区域，例如 `cn-hangzhou` |
+| `ALIYUN_LOG_ENDPOINT` | 否 | `${ALIYUN_LOG_REGION}.log.aliyuncs.com` | 自定义 SLS endpoint |
+| `ALIYUN_LOG_ENVIRONMENTS` | 否 | 内置 `test` 示例 | 环境到 Project/Logstore 的映射 |
+| `ALIYUN_LOG_DEFAULT_ENVIRONMENT` | 否 | `test` | 默认查询环境 |
+| `ALIYUN_LOG_DEFAULT_QUERY_MINUTES` | 否 | `15` | 普通查询默认时间窗口 |
+| `ALIYUN_LOG_MAX_QUERY_MINUTES` | 否 | `30` | 普通非空查询最大时间窗口 |
+| `ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES` | 否 | `5` | 空查询最大时间窗口 |
+| `ALIYUN_LOG_TRACE_DEFAULT_QUERY_MINUTES` | 否 | `10080` | traceId/TID 默认查询窗口，默认 7 天 |
+| `ALIYUN_LOG_TRACE_MAX_QUERY_MINUTES` | 否 | `10080` | traceId/TID 最大查询窗口 |
+| `ALIYUN_LOG_TRACE_MIN_LENGTH` | 否 | `16` | traceId/TID 最小长度 |
+| `ALIYUN_LOG_DEFAULT_PAGE_SIZE` | 否 | `50` | 日志明细默认每页条数 |
+| `ALIYUN_LOG_MAX_PAGE_SIZE` | 否 | `100` | 日志明细最大每页条数 |
+| `ALIYUN_LOG_RETURN_FIELDS` | 否 | 返回全部字段 | 限制每条日志返回的原始字段 |
+
+`ALIYUN_LOG_ENVIRONMENTS` 示例：
 
 ```bash
-cp .env.example .env.local
+ALIYUN_LOG_ENVIRONMENTS={"test":{"projectName":"k8s-dev","logstoreName":"test"},"staging":{"projectName":"k8s-dev","logstoreName":"staging"}}
 ```
 
-然后填写：
+`ALIYUN_LOG_RETURN_FIELDS` 示例：
 
 ```bash
-ALIYUN_LOG_ACCESS_KEY_ID=
-ALIYUN_LOG_ACCESS_KEY_SECRET=
-ALIYUN_LOG_REGION=cn-hangzhou
-ALIYUN_LOG_DEFAULT_ENVIRONMENT=test
-ALIYUN_LOG_ENVIRONMENTS={"test":{"projectName":"k8s-dev","logstoreName":"test"},"staging":{"projectName":"k8s-staging","logstoreName":"staging"}}
-ALIYUN_LOG_DEFAULT_QUERY_MINUTES=15
-ALIYUN_LOG_MAX_QUERY_MINUTES=30
-ALIYUN_LOG_EMPTY_QUERY_MAX_MINUTES=5
-ALIYUN_LOG_TRACE_DEFAULT_QUERY_MINUTES=10080
-ALIYUN_LOG_TRACE_MAX_QUERY_MINUTES=10080
-ALIYUN_LOG_TRACE_MIN_LENGTH=16
-ALIYUN_LOG_DEFAULT_PAGE_SIZE=50
-ALIYUN_LOG_MAX_PAGE_SIZE=100
 ALIYUN_LOG_RETURN_FIELDS=time,level,_container_name_,_pod_name_,_namespace_,content
 ```
 
-`.env.example` 是提交到 Git 的模板，不放真实密钥。`.env.local` 是本机真实配置，已经被 `.gitignore` 忽略，不会上传到 GitHub。
+字段名要和阿里云返回的原始字段保持一致。例如服务名字段通常是 `_container_name_`，不是 `containerName`。
 
-`ALIYUN_LOG_RETURN_FIELDS` 用来控制每条日志返回哪些字段，不配置时返回阿里云原始日志的全部字段。配置时填写阿里云原始字段名，例如：
+## MCP 服务
+
+当前提供 Streamable HTTP MCP 服务：
 
 ```text
-time,level,_container_name_,_pod_name_,_namespace_,content
+POST /mcp
+GET /mcp
+DELETE /mcp
 ```
 
-字段名要和阿里云返回保持一致，例如服务名字段是 `_container_name_`，不是 `containerName`。如果要调试字段，可以先不配置 `ALIYUN_LOG_RETURN_FIELDS`，这样会返回原始日志的全部字段。
+MCP 使用 stateful Streamable HTTP：
 
-```bash
-ALIYUN_LOG_RETURN_FIELDS=time,level,_container_name_,_pod_name_,_namespace_,content,__time__
+- 初始化请求会返回 `mcp-session-id`
+- 后续 `POST /mcp` 需要带同一个 `mcp-session-id`
+- `GET /mcp` 使用同一个 `mcp-session-id` 建立 SSE 长连接，用于接收服务端通知
+- `DELETE /mcp` 使用同一个 `mcp-session-id` 终止会话
+
+MCP 客户端配置示例：
+
+```json
+{
+  "mcpServers": {
+    "aliyun-sls-mcp-server": {
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
 ```
 
-启动服务：
+如果你的 MCP 客户端使用更简单的 server 列表格式，可以按下面这种结构改写：
 
-```bash
-npm run dev
+```json
+{
+  "name": "aliyun-sls-mcp-server",
+  "type": "streamable-http",
+  "url": "http://localhost:3000/mcp"
+}
 ```
 
-查询当前账号在指定区域下能访问的 Project：
+不同 MCP 客户端的配置字段可能不同，例如有的客户端使用 `streamable-http`，有的客户端使用 `http` 或 `streamableHttp`。请以对应客户端文档为准，核心连接地址是：
+
+```text
+http://localhost:3000/mcp
+```
+
+## MCP 工具
+
+| 工具名 | 作用 |
+|---|---|
+| `aliyun_log_list_projects` | 查询当前账号在指定区域下可访问的 SLS Project |
+| `aliyun_log_list_logstores` | 查询某个 Project 下的 Logstore |
+| `aliyun_log_query_logs` | 查询日志明细、服务日志、报错日志、traceId/TID 链路日志 |
+| `aliyun_log_get_histograms` | 查询日志数量分布、错误趋势、故障开始时间线索 |
+
+### `aliyun_log_query_logs`
+
+常用参数：
+
+```json
+{
+  "environment": "staging",
+  "containerNames": ["user-service"],
+  "level": "error",
+  "minutes": 30,
+  "pageNumber": 1,
+  "pageSize": 50
+}
+```
+
+说明：
+
+- `environment` 不传时使用 `ALIYUN_LOG_DEFAULT_ENVIRONMENT`
+- `containerNames` 是任意服务名/容器名，服务端会拼成 `_container_name_` 查询
+- `level` 只支持 `info`、`warn`、`error`
+- `traceId` 会拼成 `content: "traceId"`
+- 用户说“最近 N 分钟/小时”时，适合传 `minutes`
+- 用户说“今天 14:00 到 15:00”这种明确时间段时，Agent 应按 `Asia/Shanghai` 换算成 Unix 秒级 `from` 和 `to`
+- `from/to` 和 `minutes` 不能同时传
+- 返回 `nextPage` 时，下一次翻页应直接复用 `nextPage` 里的参数，避免重新计算时间窗口
+
+### `aliyun_log_get_histograms`
+
+常用参数：
+
+```json
+{
+  "environment": "staging",
+  "containerNames": ["user-service"],
+  "level": "error",
+  "minutes": 120
+}
+```
+
+这个工具只返回每个时间段的日志数量，不返回日志明细。适合先判断是否有错误突增，再用 `aliyun_log_query_logs` 查询具体日志。
+
+## Prompt 示例
+
+查询最近 30 分钟某个服务的错误日志：
+
+```text
+帮我查询 staging 环境 user-service 最近 30 分钟的 error 日志
+```
+
+查看错误趋势：
+
+```text
+帮我看 staging 环境 user-service 最近 2 小时 error 日志分布，判断有没有突增
+```
+
+查询固定时间段日志：
+
+```text
+帮我查 staging 环境 user-service 今天 14:00 到 15:00 的错误日志
+```
+
+查询 traceId/TID 链路：
+
+```text
+帮我查询这个 traceId 最近 7 天的链路日志：b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053
+```
+
+先看趋势，再查峰值时间段：
+
+```text
+帮我看 staging 环境 user-service 最近 2 小时 error 日志分布，如果有明显峰值，再查询峰值时间段的错误日志明细
+```
+
+## HTTP 调试接口
+
+HTTP 接口主要用于本地调试和验证阿里云配置是否正确。
+
+查询 Project：
 
 ```bash
 curl "http://localhost:3000/aliyun-log/projects"
 ```
 
-如果请求里不传 `projectName`，接口会查询当前区域下全部 Project。
-
-按 Project 名称模糊过滤：
-
-```bash
-curl "http://localhost:3000/aliyun-log/projects?projectName=k8s"
-```
-
-查询某个 Project 下的 Logstore：
+查询 Logstore：
 
 ```bash
 curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores"
 ```
 
-按 Logstore 名称模糊过滤：
-
-```bash
-curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores?logstoreName=test"
-```
-
-查询某个 Project + Logstore 最近 5 分钟日志：
-
-```bash
-curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs"
-```
-
-按环境查询最近 5 分钟日志。`environment` 不传时默认使用 `ALIYUN_LOG_DEFAULT_ENVIRONMENT`，当前默认是 `test`：
-
-```bash
-curl "http://localhost:3000/aliyun-log/logs"
-```
-
-指定环境查询：
-
-```bash
-curl "http://localhost:3000/aliyun-log/logs?environment=staging"
-```
-
-查询最近 5 分钟 ERROR 日志：
+按环境查询日志：
 
 ```bash
 curl --get "http://localhost:3000/aliyun-log/logs" \
-  --data-urlencode "environment=test" \
+  --data-urlencode "environment=staging" \
+  --data-urlencode "containerNames=user-service" \
   --data-urlencode "level=error" \
-  --data-urlencode "minutes=5" \
-  --data-urlencode "pageNumber=1" \
-  --data-urlencode "pageSize=50"
+  --data-urlencode "minutes=30"
 ```
 
-查询两个服务的日志：
+查询 traceId/TID：
 
 ```bash
 curl --get "http://localhost:3000/aliyun-log/logs" \
-  --data-urlencode "environment=test" \
-  --data-urlencode "containerNames=order-service,pay-service" \
-  --data-urlencode "minutes=5"
-```
-
-查询两个服务的 ERROR 日志：
-
-```bash
-curl --get "http://localhost:3000/aliyun-log/logs" \
-  --data-urlencode "environment=test" \
-  --data-urlencode "containerNames=order-service,pay-service" \
-  --data-urlencode "level=error" \
-  --data-urlencode "minutes=5"
-```
-
-查询 traceId 链路：
-
-```bash
-curl --get "http://localhost:3000/aliyun-log/logs" \
-  --data-urlencode "environment=test" \
+  --data-urlencode "environment=staging" \
   --data-urlencode "traceId=b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053"
 ```
 
-传 `traceId` 且不传 `from/to/minutes` 时，默认查最近 7 天，也就是 `ALIYUN_LOG_TRACE_DEFAULT_QUERY_MINUTES=10080`。
-
-查询 traceId 的某个日志级别：
+查询日志分布：
 
 ```bash
-curl --get "http://localhost:3000/aliyun-log/logs" \
-  --data-urlencode "environment=test" \
-  --data-urlencode "traceId=b03a2133ebe048ccae56cb40125bb53d.574.17827209165150053" \
-  --data-urlencode "level=info"
-```
-
-`query` 可以和结构化参数混用，服务端会用 `and` 拼成最终查询语句。例如：
-
-```bash
-curl --get "http://localhost:3000/aliyun-log/logs" \
-  --data-urlencode "environment=test" \
-  --data-urlencode "query=TimeoutException" \
-  --data-urlencode "containerNames=order-service,pay-service" \
+curl --get "http://localhost:3000/aliyun-log/histograms" \
+  --data-urlencode "environment=staging" \
+  --data-urlencode "containerNames=user-service" \
   --data-urlencode "level=error" \
-  --data-urlencode "keywords=database,slow sql" \
-  --data-urlencode "minutes=5"
+  --data-urlencode "minutes=120"
 ```
 
-最终会拼成类似：
-
-```text
-(TimeoutException) and (_container_name_: order-service or _container_name_: pay-service) and level: error and content: "database" and content: "slow sql"
-```
-
-分页查询第二页时，不要重新传 `minutes`。如果上一页返回了 `nextPage`，直接复用里面的 `from/to/query/pageSize/reverse`，只使用它给出的下一页页码。
-
-上一页返回示例：
-
-```json
-{
-  "page": {
-    "pageNumber": 1,
-    "pageSize": 50,
-    "offset": 0,
-    "hasMore": true
-  },
-  "nextPage": {
-    "environment": "test",
-    "query": "level: error",
-    "from": 1719390000,
-    "to": 1719390900,
-    "pageNumber": 2,
-    "pageSize": 50,
-    "reverse": true
-  }
-}
-```
-
-然后按 `nextPage` 查询第二页：
+直接指定 Project + Logstore：
 
 ```bash
-curl --get "http://localhost:3000/aliyun-log/logs" \
-  --data-urlencode "environment=test" \
+curl --get "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/staging/logs" \
   --data-urlencode "query=level: error" \
   --data-urlencode "from=1719390000" \
-  --data-urlencode "to=1719390900" \
-  --data-urlencode "pageNumber=2" \
-  --data-urlencode "pageSize=50"
+  --data-urlencode "to=1719390900"
 ```
 
-也可以用 Unix 秒级时间戳指定时间范围：
+## 安全建议
 
-```bash
-curl "http://localhost:3000/aliyun-log/projects/k8s-dev/logstores/test/logs?query=level:%20ERROR&from=1719390000&to=1719390900"
-```
+- 不要提交 `.env.local`
+- 不要使用阿里云主账号 AccessKey
+- 建议为本服务创建专用 RAM 用户
+- 建议只授予 SLS 只读查询权限
+- 生产环境建议部署在内网或受控网络中
+- 生产环境建议在反向代理层增加鉴权
+- 日志可能包含手机号、邮箱、用户 ID、请求参数、业务数据等敏感信息，请谨慎暴露给外部 Agent
+- 如果需要控制返回字段，请配置 `ALIYUN_LOG_RETURN_FIELDS`，减少敏感字段和上下文占用
 
-注意：`query` 里如果包含 `|`，阿里云会把它当分析语句处理，普通 `line/offset` 分页可能会被忽略。这种情况建议在 SQL 里自己写 `limit/offset`。
-
-## MCP 服务
-
-当前提供一个 Streamable HTTP MCP 服务，路径是：
-
-```text
-POST /mcp
-```
-
-MCP 使用 stateful Streamable HTTP：
-
-- 初始化请求会返回 `mcp-session-id`。
-- 后续 `POST /mcp` 需要带同一个 `mcp-session-id`。
-- `GET /mcp` 使用同一个 `mcp-session-id` 建立 SSE 长连接，用于接收服务端通知。
-- `DELETE /mcp` 使用同一个 `mcp-session-id` 终止会话。
-
-当前注册的工具：
-
-```text
-aliyun_log_list_projects
-aliyun_log_list_logstores
-aliyun_log_query_logs
-```
-
-这些工具复用阿里云日志 API，用来查询当前账号在指定区域下可访问的 Project、Logstore，以及指定 Logstore 下的日志。
-
-启动服务：
+## 开发命令
 
 ```bash
 npm run dev
-```
-
-工具参数：
-
-```json
-{
-  "projectName": "k8s",
-  "offset": 0,
-  "size": 100
-}
-```
-
-`projectName` 不传时，会查询当前区域下全部 Project。工具执行期间会发送开始和完成两条 logging notification，MCP 客户端建立 `GET /mcp` 长连接后可以收到这些服务端通知。
-
-`aliyun_log_list_logstores` 工具参数：
-
-```json
-{
-  "projectName": "k8s-dev",
-  "logstoreName": "test",
-  "offset": 0,
-  "size": 200
-}
-```
-
-`aliyun_log_query_logs` 工具参数：
-
-```json
-{
-  "environment": "test",
-  "query": "(_container_name_: order-service or _container_name_: pay-service) and level: error",
-  "minutes": 5,
-  "pageNumber": 1,
-  "pageSize": 50,
-  "reverse": true
-}
-```
-
-`environment` 不传时默认查 `test`。如果要临时绕过环境映射，也可以同时传 `projectName` 和 `logstoreName`，但不能和 `environment` 混用。
-
-常用查询字段：
-
-- 服务名：`_container_name_`
-- 日志级别：`level`
-- 日志级别取值：`info`、`warn`、`error`
-- traceId：`content`
-
-时间参数有两种写法：
-
-1. 传 `minutes`，表示查询最近 N 分钟。
-2. 同时传 `from` 和 `to`，表示查询固定 Unix 秒级时间范围。
-
-如果两种都不传，有 `traceId` 时默认查询最近 7 天；有普通 `query` 或结构化服务/level/keyword 条件时默认查询最近 15 分钟；空查询时默认查询最近 5 分钟。空查询最大只允许查 5 分钟，避免一次性扫太多日志。
-
-## 常用命令
-
-```bash
 npm run typecheck
 npm run build
 npm start
 ```
 
-## 代码结构
+说明：
 
-- `src/server.ts`：进程入口，负责监听端口。
-- `src/app.ts`：Express 应用组装入口。
-- `src/config/env.ts`：环境变量读取和校验。
-- `src/routes/health.ts`：健康检查路由。
-- `src/mcp-services/mysql-metadata`：MySQL 元数据 MCP 服务预留目录。
-- `src/mcp-services/aliyun-log`：阿里云日志 API 接入模块，当前实现 `ListProject`、`ListLogStores` 和 `GetLogsV2`。
+- `npm run dev`：开发模式启动，使用 `tsx watch`
+- `npm run typecheck`：只做 TypeScript 类型检查，不输出文件
+- `npm run build`：编译到 `dist`
+- `npm start`：运行编译后的 `dist/src/server.js`
 
-## Review TS 代码的建议流程
+## 项目结构
 
-你对 TypeScript 还不熟，所以每次看 AI 生成的 TS 代码，建议按下面顺序 review：
+```text
+src/
+  server.ts                         # 进程入口，监听端口
+  app.ts                            # Express 应用组装
+  config/env.ts                     # 基础环境变量读取
+  routes/
+    health.ts                       # 健康检查
+    mcp.ts                          # Streamable HTTP MCP 路由
+  mcp-server.ts                     # MCP Server 和工具注册
+  mcp-tools/
+    aliyun-log-tool-definitions.ts  # MCP 工具名、描述、入参 schema
+  mcp-services/
+    aliyun-log/
+      client.ts                     # 阿里云 SLS SDK client
+      config.ts                     # SLS 配置读取
+      projects.ts                   # ListProject
+      logstores.ts                  # ListLogStores
+      logs.ts                       # GetLogsV2
+      histograms.ts                 # GetHistograms
+      routes.ts                     # HTTP 调试接口
+```
 
-1. 先看 `package.json`：确认新增依赖是不是必要，脚本命令是否清楚。
-2. 再看入口文件：本项目先看 `src/server.ts`，确认服务从哪里启动、监听哪个端口。
-3. 再看应用组装：看 `src/app.ts`，确认中间件、路由注册、返回结构是否符合预期。
-4. 再看配置读取：看 `src/config/env.ts`，确认环境变量有没有默认值、有没有基本校验。
-5. 再看具体路由：看 `src/routes/health.ts` 和 `src/mcp-services/aliyun-log/routes.ts`，确认接口路径、入参、返回 JSON。
-6. 再看 MCP 注册：看 `src/mcp-server.ts`，确认工具名、参数、调用的服务函数和返回内容。
-7. 跑一遍命令：`npm run typecheck`、`npm run build`。
+## Roadmap
 
-如果你不确定某段 TS，可以重点问三个问题：
+- Docker 镜像和部署示例
+- RAM 最小权限 Policy 示例
+- 更多 MCP 客户端接入示例
+- 可选鉴权中间件
+- 更完整的日志脱敏配置
+- 受控 SQL 聚合能力，例如按服务统计 error Top N
 
-- 这个文件对外暴露了什么？
-- 这个函数接收什么输入，返回什么输出？
-- 这里失败时会发生什么？
+## License
+
+MIT
